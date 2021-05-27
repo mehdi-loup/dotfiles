@@ -1,4 +1,3 @@
-cp ~/dotfiles/.gitconfig ~/
 cp ~/dotfiles/.zshrc ~/
 
 # Only run nested steps in Spin workspaces.
