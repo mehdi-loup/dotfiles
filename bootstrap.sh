@@ -3,6 +3,7 @@ cp ~/dotfiles/.zshrc ~/
 # Only run nested steps in Spin workspaces.
 if [[ "$SPIN" = 1 ]]
 then
+  . ~/.zshrc
   # Only run nested steps in Spin + shopify/shopify workspaces.
   if [[ "$SPIN_REPO_SOURCE_PATH" = "/src/github.com/shopify/shopify" ]]
   then
