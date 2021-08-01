@@ -10,4 +10,11 @@ then
     cartridge insert mln/sp-bootstrap
     . /cartridges/sp-bootstrap/setup.sh > /tmp/setup.log
   fi
+  
+  # Only run nested steps in Spin + shopify/banking workspaces.
+  if [[ "$SPIN_REPO_SOURCE_PATH" = "/src/github.com/shopify/banking" ]]
+  then
+    cartridge insert mln/banking-bootstrap
+    . /cartridges/banking-bootstrap/setup.sh > /tmp/setup.log
+  fi
 fi
