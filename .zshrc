@@ -1,40 +1,23 @@
-# Prompt
+# Executes commands at the start of an interactive session.
+#
+# Authors:
+#   Sorin Ionescu <sorin.ionescu@gmail.com>
+#
 
-# Keep it simple when Emacs is connecting
-
-if [[ "$TERM" == "dumb" ]]
-then
-  unsetopt zle
-  unsetopt prompt_cr
-  unsetopt prompt_subst
-  if whence -w precmd >/dev/null; then
-      unfunction precmd
-  fi
-  if whence -w preexec >/dev/null; then
-      unfunction preexec
-  fi
-  PS1='$ '
-  return
+# Source Prezto.
+if [[ -s "${ZDOTDIR:-$HOME}/.zprezto/init.zsh" ]]; then
+  source "${ZDOTDIR:-$HOME}/.zprezto/init.zsh"
 fi
 
-# Interactive prompt
+# Customize to your needs...
 
-autoload -Uz vcs_info
-precmd_functions+=( vcs_info )
-setopt prompt_subst
+# Fzf
+[ -f ~/.fzf.zsh ] && source ~/.fzf.zsh
+# export FZF_DEFAULT_COMMAND='rg --files --files-with-matches --no-ignore --hidden --follow --exclude .git'
+export FZF_DEFAULT_COMMAND='fd --type f --hidden --follow --exclude .git'
 
-zstyle ':vcs_info:git:*' check-for-changes true
-zstyle ':vcs_info:*' unstagedstr '*'
-zstyle ':vcs_info:*' stagedstr '+'
-zstyle ':vcs_info:git:*' formats '%F{200}[%b%u%c]%f'
-zstyle ':vcs_info:*' enable git
-
-alias vin='f() { vi $(find node_modules/$1 -name $2*) };f'
-
-alias install_go='f() { wget https://golang.org/dl/go1.16.3.linux-amd64.tar.gz; rm -rf /usr/local/go; sudo tar -C /usr/local -xzf go1.16.3.linux-amd64.tar.gz; echo ''Add Go to your path: export PATH=\$PATH:/usr/local/go/bin'' };f'
-alias clone_esbuild='f() { cd /src/github.com/shopify/web; git clone https://github.com/GoodForOneFare/esbuild.git; };f'
-alias make_esbuild='f() { pkill -9 -f runner.ts; make; cp esbuild /src/github.com/shopify/web/spinx/node_modules/esbuild/bin/esbuild; echo ''done''; };f'
-
+# Aliases
+alias vim="nvim"
 alias gs='git status'
 alias gsh='git show HEAD'
 alias grab='git rebase --abort'
@@ -47,7 +30,85 @@ alias reset-yarn-lock='git reset yarn.lock && git co yarn.lock && yarn && git ad
 alias nginx-update="erb .spin/nginx.conf.erb > /etc/nginx/conf.d/nginx.conf"
 alias find-tsserver-logs="find /home/spin/.vscode-server/data/logs/ |grep /tsserver\\\.log"
 alias lint="node_modules/.bin/eslint --format codeframe --no-cache"
+alias fixup="git commit --amend -C HEAD"
+alias gpf='git push --force-with-lease --set-upstream origin "$(git-branch-current 2> /dev/null)"'
+alias gap='git commit --amend -C HEAD && git push --force --set-upstream origin "$(git-branch-current 2> /dev/null)"'
+alias gup='git pull --rebase origin "$(git-branch-current 2> /dev/null)"'
+alias gcf="git commit -a --fixup HEAD"
+alias gpm="git pull --rebase origin master"
+alias gpms="git fetch origin master && git rebase --interactive --autosquash origin/master"
+alias wip="git commit -am \"WIP\""
+alias delete-old-branches="git branch --merged | grep -v '\*\|master\|develop' | xargs -n 1 git branch -d"
 
-export X_SPIN_HOST="$(echo $HOSTNAME | sed -r 's/-[0-9]*$//')"
+git_recent_branches() {
+    git branch --sort=committerdate | tail -n 10
+}
 
-PROMPT='$X_SPIN_HOST %(?.%F{green}√.%F{red}?%?)%f %B%c%b $vcs_info_msg_0_ $ '
+git_checkout_recent_branch() {
+    local current_branch_name="$(git branch | grep \* | cut -d ' ' -f2)"
+
+    local new_branch_name="${$(git_recent_branches | fzf)//[[:blank:]]/}"
+
+    echo "Switching to \e[36m$new_branch_name\e[0m..."
+
+    {
+        git add .
+        git stash save "$current_branch_name-AUTOSTASH"
+
+        git co $new_branch_name
+
+        local previous_stash="$new_branch_name-AUTOSTASH"
+        local stash_found="$(git stash list | grep $previous_stash | head -n 1 | sed 's/:.*//')"
+
+        if [ ! -z "$stash_found" ]
+        then
+            git stash apply $stash_found
+            git stash drop $stash_found
+        fi
+    } &> /dev/null
+}
+
+clone_repo() {
+    local repo_url=$1
+
+    local repo_domain="$(echo "$1" | awk -F/ '{print $3}')"
+    local git_user="$(echo "$1" | awk -F/ '{print $4}')"
+    local user_path="$HOME/src/$repo_domain/$git_user"
+
+    mkdir -p $user_path
+    cd $user_path
+    git clone $repo_url
+
+    local repo_name="$(echo "$1" | awk -F/ '{print $5}')"
+    local src_dir="$(echo $repo_name | sed -e "s/\.git//g")"
+
+    cd $src_dir
+}
+
+alias gcor=git_checkout_recent_branch
+
+alias lastb="git for-each-ref --sort=committerdate refs/heads/ --format='%(HEAD) %(color:yellow)%(refname:short)%(color:reset) - %(color:red)%(objectname:short)%(color:reset) - %(contents:subject) - %(authorname) (%(color:green)%(committerdate:relative)%(color:reset))'"
+git config --global alias.up 'pull --rebase --autostash'
+git config --global alias.st 'status'
+
+export EDITOR=nvim
+export VISUAL=nvim
+
+export DOTFILES=~/src/github.com/felix-d/dotfiles
+alias dotfiles="nvim $DOTFILES"
+
+# Fixes Ctr-A and Ctrl-E because of oh my zsh
+bindkey -e
+
+export DEFAULT_USER=$USER
+zstyle ':prezto:module:git:info:dirty' format "%%B%F{$secondary_color}]%f%%b %F{yellow}✗%f"
+
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
+[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
+
+alias zapper="cd ~/src/github.com/Zapper-fi/zapper-web"
+
+source ~/.secrets
+export PATH="/opt/homebrew/opt/postgresql@11/bin:$PATH"
+nvm use 16
